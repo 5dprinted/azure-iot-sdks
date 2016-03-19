@@ -9,11 +9,21 @@
 #include "threadapi.h"
 #include "crt_abstractions.h"
 #include "iothubtransportmqtt.h"
+#include "platform.h"
+
+#ifdef MBED_BUILD_TIMESTAMP
+#include "certs.h"
+#endif // MBED_BUILD_TIMESTAMP
+
 
 /*String containing Hostname, Device Id & Device Key in the format:             */
 /*  "HostName=<host_name>;DeviceId=<device_id>;SharedAccessKey=<device_key>"    */
 static const char* connectionString = "[device connection string]";
+
 static int callbackCounter;
+static char msgText[1024];
+#define MESSAGE_COUNT 5
+static bool continueRunning;
 
 DEFINE_ENUM_STRINGS(IOTHUB_CLIENT_CONFIRMATION_RESULT, IOTHUB_CLIENT_CONFIRMATION_RESULT_VALUES);
 
@@ -22,6 +32,7 @@ typedef struct EVENT_INSTANCE_TAG
     IOTHUB_MESSAGE_HANDLE messageHandle;
     int messageTrackingId;  // For tracking the messages within the user callback.
 } EVENT_INSTANCE;
+
 
 static IOTHUBMESSAGE_DISPOSITION_RESULT ReceiveMessageCallback(IOTHUB_MESSAGE_HANDLE message, void* userContextCallback)
 {
@@ -35,13 +46,17 @@ static IOTHUBMESSAGE_DISPOSITION_RESULT ReceiveMessageCallback(IOTHUB_MESSAGE_HA
     else
     {
         (void)printf("Received Message [%d] with Data: <<<%.*s>>> & Size=%d\r\n", *counter, (int)size, buffer, (int)size);
+        // If we receive the work 'quit' then we stop running
+        if (memcmp(buffer, "quit", size) == 0)
+        {
+            continueRunning = false;
+        }
     }
 
     // Retrieve properties from the message
     MAP_HANDLE mapProperties = IoTHubMessage_Properties(message);
     if (mapProperties != NULL)
     {
-        (void)printf("ERROR: message incorrectly contains properties!\r\n");
         const char*const* keys;
         const char*const* values;
         size_t propertyCount = 0;
@@ -49,7 +64,7 @@ static IOTHUBMESSAGE_DISPOSITION_RESULT ReceiveMessageCallback(IOTHUB_MESSAGE_HA
         {
             if (propertyCount > 0)
             {
-                (void)printf("Message Properties:\r\n");
+                (void)printf("ERROR: message incorrectly contains properties!\r\n");
                 for (size_t index = 0; index < propertyCount; index++)
                 {
                     (void)printf("\tKey: %s Value: %s\r\n", keys[index], values[index]);
@@ -73,71 +88,86 @@ static void SendConfirmationCallback(IOTHUB_CLIENT_CONFIRMATION_RESULT result, v
     IoTHubMessage_Destroy(eventInstance->messageHandle);
 }
 
-static char msgText[1024];
-#define MESSAGE_COUNT 5
-
 void iothub_client_sample_mqtt_run(void)
 {
     IOTHUB_CLIENT_LL_HANDLE iotHubClientHandle;
 
     EVENT_INSTANCE messages[MESSAGE_COUNT];
 
+    continueRunning = true;
     srand((unsigned int)time(NULL));
     double avgWindSpeed = 10.0;
     
     callbackCounter = 0;
     int receiveContext = 0;
 
-    (void)printf("Starting the IoTHub client sample MQTT...\r\n");
-
-    if ((iotHubClientHandle = IoTHubClient_LL_CreateFromConnectionString(connectionString, MQTT_Protocol)) == NULL)
+    if (platform_init() != 0)
     {
-        (void)printf("ERROR: iotHubClientHandle is NULL!\r\n");
+        (void)printf("Failed to initialize the platform.\r\n");
     }
     else
     {
+        (void)printf("Starting the IoTHub client sample MQTT...\r\n");
 
-        /* Setting Message call back, so we can receive Commands. */
-        if (IoTHubClient_LL_SetMessageCallback(iotHubClientHandle, ReceiveMessageCallback, &receiveContext) != IOTHUB_CLIENT_OK)
+        if ((iotHubClientHandle = IoTHubClient_LL_CreateFromConnectionString(connectionString, MQTT_Protocol)) == NULL)
         {
-            (void)printf("ERROR: IoTHubClient_LL_SetMessageCallback..........FAILED!\r\n");
+            (void)printf("ERROR: iotHubClientHandle is NULL!\r\n");
         }
         else
         {
-            (void)printf("IoTHubClient_LL_SetMessageCallback...successful.\r\n");
+            bool traceOn = true;
+            IoTHubClient_LL_SetOption(iotHubClientHandle, "logtrace", &traceOn);
 
-            /* Now that we are ready to receive commands, let's send some messages */
-            for (int i = 0; i < MESSAGE_COUNT; i++)
+#ifdef MBED_BUILD_TIMESTAMP
+            // For mbed add the certificate information
+            if (IoTHubClient_SetOption(iotHubClientHandle, "TrustedCerts", certificates) != IOTHUB_CLIENT_OK)
             {
-                sprintf_s(msgText, sizeof(msgText), "{\"deviceId\":\"myFirstDevice\",\"windSpeed\":%.2f}", avgWindSpeed + (rand() % 4 + 2));
-                if ((messages[i].messageHandle = IoTHubMessage_CreateFromByteArray((const unsigned char*)msgText, strlen(msgText))) == NULL)
-                {
-                    (void)printf("ERROR: iotHubMessageHandle is NULL!\r\n");
-                }
-                else
-                {
-                    messages[i].messageTrackingId = i;
+                printf("failure to set option \"TrustedCerts\"\r\n");
+            }
+#endif // MBED_BUILD_TIMESTAMP
 
-                    if (IoTHubClient_LL_SendEventAsync(iotHubClientHandle, messages[i].messageHandle, SendConfirmationCallback, &messages[i]) != IOTHUB_CLIENT_OK)
+            /* Setting Message call back, so we can receive Commands. */
+            if (IoTHubClient_LL_SetMessageCallback(iotHubClientHandle, ReceiveMessageCallback, &receiveContext) != IOTHUB_CLIENT_OK)
+            {
+                (void)printf("ERROR: IoTHubClient_LL_SetMessageCallback..........FAILED!\r\n");
+            }
+            else
+            {
+                (void)printf("IoTHubClient_LL_SetMessageCallback...successful.\r\n");
+
+                /* Now that we are ready to receive commands, let's send some messages */
+                for (size_t i = 0; i < MESSAGE_COUNT; i++)
+                {
+                    sprintf_s(msgText, sizeof(msgText), "{\"deviceId\":\"myFirstDevice\",\"windSpeed\":%.2f}", avgWindSpeed + (rand() % 4 + 2));
+                    if ((messages[i].messageHandle = IoTHubMessage_CreateFromByteArray((const unsigned char*)msgText, strlen(msgText))) == NULL)
                     {
-                        (void)printf("ERROR: IoTHubClient_LL_SendEventAsync..........FAILED!\r\n");
+                        (void)printf("ERROR: iotHubMessageHandle is NULL!\r\n");
                     }
                     else
                     {
-                        (void)printf("IoTHubClient_LL_SendEventAsync accepted message [%d] for transmission to IoT Hub.\r\n", i);
-                    }
+                        messages[i].messageTrackingId = i;
 
+                        if (IoTHubClient_LL_SendEventAsync(iotHubClientHandle, messages[i].messageHandle, SendConfirmationCallback, &messages[i]) != IOTHUB_CLIENT_OK)
+                        {
+                            (void)printf("ERROR: IoTHubClient_LL_SendEventAsync..........FAILED!\r\n");
+                        }
+                        else
+                        {
+                            (void)printf("IoTHubClient_LL_SendEventAsync accepted message [%d] for transmission to IoT Hub.\r\n", (int)i);
+                        }
+
+                    }
                 }
             }
-        }
 
-        /* Wait for Commands. */
-        while (1)
-        {
-            IoTHubClient_LL_DoWork(iotHubClientHandle);
-            ThreadAPI_Sleep(1);
+            /* Wait for Commands. */
+            while (continueRunning)
+            {
+                IoTHubClient_LL_DoWork(iotHubClientHandle);
+                ThreadAPI_Sleep(1);
+            }
+            IoTHubClient_LL_Destroy(iotHubClientHandle);
         }
-
-        IoTHubClient_LL_Destroy(iotHubClientHandle);
+        platform_deinit();
     }
 }

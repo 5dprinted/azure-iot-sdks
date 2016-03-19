@@ -5,18 +5,20 @@
 
 package com.microsoft.azure.iot.service.transport.amqps;
 
+import com.microsoft.azure.iot.service.sdk.Message;
 import com.microsoft.azure.iot.service.sdk.Tools;
+import com.microsoft.azure.iot.service.transport.TransportUtils;
 import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.amqp.Binary;
-import org.apache.qpid.proton.amqp.messaging.Data;
-import org.apache.qpid.proton.amqp.messaging.Properties;
-import org.apache.qpid.proton.amqp.messaging.Section;
-import org.apache.qpid.proton.amqp.messaging.Target;
+import org.apache.qpid.proton.amqp.Symbol;
+import org.apache.qpid.proton.amqp.messaging.*;
 import org.apache.qpid.proton.engine.*;
 import org.apache.qpid.proton.messenger.impl.Address;
 import org.apache.qpid.proton.reactor.Handshaker;
 
 import java.nio.BufferOverflowException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Instance of the QPID-Proton-J BaseHandler class to override
@@ -25,18 +27,17 @@ import java.nio.BufferOverflowException;
  * Maintains the layers of AMQP protocol (Link, Session, Connection, Transport)
  * Creates and sets SASL authentication for transport
  */
-class AmqpSendHandler extends BaseHandler
+public class AmqpSendHandler extends BaseHandler
 {
     public static final String SEND_TAG = "sender";
     public static final String SEND_PORT = ":5671";
     public static final String ENDPOINT = "/messages/devicebound";
-    public static final String PATH_DEVICES = "/devices/devicebound";
     public static final String DEVICE_PATH_FORMAT = "/devices/%s/messages/devicebound";
 
     protected final String hostName;
     protected final String userName;
     protected final String sasToken;
-    protected org.apache.qpid.proton.message.Message message;
+    protected org.apache.qpid.proton.message.Message protonMessage;
     private int nextTag = 0;
 
     /**
@@ -46,7 +47,7 @@ class AmqpSendHandler extends BaseHandler
      * @param userName The username string to use SASL authentication (example: user@sas.service)
      * @param sasToken The SAS token string
      */
-    AmqpSendHandler(String hostName, String userName, String sasToken) 
+    public AmqpSendHandler(String hostName, String userName, String sasToken)
     {
         // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_001: [The constructor shall throw IllegalArgumentException if any of the input parameter is null or empty]
         if (Tools.isNullOrEmpty(hostName))
@@ -86,24 +87,45 @@ class AmqpSendHandler extends BaseHandler
     /**
      * Create Proton message from deviceId and content string
      * @param deviceId The device name string
-     * @param content The content string of the message
+     * @param message The message to be sent
      */
-    public void createBinaryMessage(String deviceId, String content)
+    public void createProtonMessage(String deviceId, Message message)
     {
         // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_005: [The function shall create a new Message (Proton) object]
-        this.message = Proton.message();
+        this.protonMessage = Proton.message();
 
-        // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_006: [The function shall set the “to” property on the Message object using the created device path]
+        // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_006: [The function shall set
+        // the standard properties on the Proton Message object]
         Properties properties = new Properties();
+        properties.setMessageId(message.getMessageId());
         properties.setTo(buildToDevicePath(deviceId));
-        message.setProperties(properties);
+        properties.setAbsoluteExpiryTime(message.getExpiryTimeUtc());
+        properties.setCorrelationId(message.getCorrelationId());
+        if (message.getUserId() != null)
+        {
+            properties.setUserId(new Binary(message.getUserId().getBytes()));
+        }
+        this.protonMessage.setProperties(properties);
+
+        // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_023: [The function shall set
+        // the application properties on the Proton Message object]
+        if (message.getProperties() != null && message.getProperties().size() > 0)
+        {
+            Map<String, String> applicationPropertiesMap = new HashMap<>(message.getProperties().size());
+            for(Map.Entry<String, String> entry : message.getProperties().entrySet())
+            {
+                applicationPropertiesMap.put(entry.getKey(), entry.getValue());
+            }
+            ApplicationProperties applicationProperties = new ApplicationProperties(applicationPropertiesMap);
+            this.protonMessage.setApplicationProperties(applicationProperties);
+        }
 
         // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_007: [The function shall create a Binary (Proton) object from the content string]
-        Binary binary = new Binary(content.getBytes());
+        Binary binary = new Binary(message.getBytes());
         // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_008: [The function shall create a data Section (Proton) object from the Binary]
         Section section = new Data(binary);
         // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_009: [The function shall set the Message body to the created data section]
-        message.setBody(section);
+        this.protonMessage.setBody(section);
     }
 
     /**
@@ -167,7 +189,11 @@ class AmqpSendHandler extends BaseHandler
         // doesn't have a handler, the events go to the reactor.
 
         // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_014: [The event handler shall create a Sender (Proton) object and set the protocol tag on it to a predefined constant]
+        // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_15_023: [The Sender object shall have the properties set to service client version identifier.]
+        Map<Symbol, Object> properties = new HashMap<>();
+        properties.put(Symbol.getSymbol(TransportUtils.versionIdentifierKey), TransportUtils.javaServiceClientIdentifier + TransportUtils.serviceVersion);
         Sender snd = ssn.sender(SEND_TAG);
+        snd.setProperties(properties);
 
         // Codes_SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_015: [The event handler shall open the Connection, the Session and the Sender object]
         conn.open();
@@ -208,7 +234,7 @@ class AmqpSendHandler extends BaseHandler
             {
                 try
                 {
-                    length = message.encode(msgData, 0, msgData.length);
+                    length = this.protonMessage.encode(msgData, 0, msgData.length);
                     break;
                 } catch(BufferOverflowException e)
                 {

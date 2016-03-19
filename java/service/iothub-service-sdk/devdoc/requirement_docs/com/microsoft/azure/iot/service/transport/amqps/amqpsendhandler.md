@@ -41,7 +41,9 @@ public void createBinaryMessage(String deviceId, String content);
 ```
 **SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_005: [** The function shall create a new Message (Proton) object **]**
 
-**SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_006: [** The function shall set the 'to' property on the Message object using the created device path **]**
+**SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_006: [** The function shall set the standard properties on the Proton Message object **]**
+
+**SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_15_023: [** The function shall set the application properties on the Proton Message object **]**
 
 **SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_007: [** The function shall create a Binary (Proton) object from the content string **]**
 
@@ -70,6 +72,8 @@ public void onConnectionInit(Event event);
 **SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_014: [** The event handler shall create a Sender (Proton) object and set the protocol tag on it to a predefined constant **]**
 
 **SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_12_015: [** The event handler shall open the Connection, the Session and the Sender object **]**
+
+**SRS_SERVICE_SDK_JAVA_AMQPSENDHANDLER_15_023: [** The Sender object shall have the properties set to service client version identifier.**]**
 
 ### onLinkInit
 

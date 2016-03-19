@@ -61,10 +61,13 @@ public class HttpsIotHubConnection
             String deviceId = this.config.getDeviceId();
             int readTimeoutMillis = this.config.getReadTimeoutMillis();
 
-            // Codes_SRS_HTTPSIOTHUBCONNECTION_11_002: [The function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/events?api-version=2015-08-15-preview'.]
+            // Codes_SRS_HTTPSIOTHUBCONNECTION_11_002: [The function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/events?api-version=2016-02-03'.]
             IotHubEventUri eventUri = new IotHubEventUri(iotHubHostname, deviceId);
             URL eventUrl = new URL("https://" + eventUri.toString());
-            IotHubSasToken sasToken = TransportUtils.buildToken(this.config);
+            IotHubSasToken sasToken = new IotHubSasToken(IotHubUri.getResourceUri(this.config.getIotHubHostname(), this.config.getDeviceId()),
+                    this.config.getDeviceId(),
+                    this.config.getDeviceKey(),
+                    System.currentTimeMillis() / 1000l + this.config.getTokenValidSecs() + 1l);
 
             // Codes_SRS_HTTPSIOTHUBCONNECTION_11_003: [The function shall send a POST request.]
             // Codes_SRS_HTTPSIOTHUBCONNECTION_11_004: [The function shall set the request body to the message body.]
@@ -110,12 +113,15 @@ public class HttpsIotHubConnection
             int readTimeoutMillis = this.config.getReadTimeoutMillis();
             int messageLockTimeoutSecs = this.config.getMessageLockTimeoutSecs();
 
-            // Codes_SRS_HTTPSIOTHUBCONNECTION_11_013: [The function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/devicebound?api-version=2015-08-15-preview'.]
+            // Codes_SRS_HTTPSIOTHUBCONNECTION_11_013: [The function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/devicebound?api-version=2016-02-03'.]
             IotHubMessageUri messageUri =
                     new IotHubMessageUri(iotHubHostname, deviceId);
             URL messageUrl = new URL("https://" + messageUri.toString());
 
-            IotHubSasToken sasToken = TransportUtils.buildToken(this.config);
+            IotHubSasToken sasToken = new IotHubSasToken(IotHubUri.getResourceUri(this.config.getIotHubHostname(), this.config.getDeviceId()),
+                    this.config.getDeviceId(),
+                    this.config.getDeviceKey(),
+                    System.currentTimeMillis() / 1000l + this.config.getTokenValidSecs() + 1l);
 
             // Codes_SRS_HTTPSIOTHUBCONNECTION_11_014: [The function shall send a GET request.]
             HttpsRequest request =
@@ -190,7 +196,7 @@ public class HttpsIotHubConnection
             switch (result)
             {
                 case COMPLETE:
-                    // Codes_SRS_HTTPSIOTHUBCONNECTION_11_024: [If the result is COMPLETE, the function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/devicebound/[eTag]?api-version=2015-08-15-preview'.]
+                    // Codes_SRS_HTTPSIOTHUBCONNECTION_11_024: [If the result is COMPLETE, the function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/devicebound/[eTag]?api-version=2016-02-03'.]
                     IotHubCompleteUri completeUri =
                             new IotHubCompleteUri(iotHubHostname, deviceId,
                                     this.messageEtag);
@@ -203,7 +209,7 @@ public class HttpsIotHubConnection
                             new byte[0]);
                     break;
                 case ABANDON:
-                    // Codes_SRS_HTTPSIOTHUBCONNECTION_11_027: [If the result is ABANDON, the function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/devicebound/[eTag]/abandon?api-version=2015-08-15-preview'.]
+                    // Codes_SRS_HTTPSIOTHUBCONNECTION_11_027: [If the result is ABANDON, the function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/devicebound/[eTag]/abandon?api-version=2016-02-03'.]
                     IotHubAbandonUri abandonUri =
                             new IotHubAbandonUri(iotHubHostname, deviceId,
                                     this.messageEtag);
@@ -220,7 +226,7 @@ public class HttpsIotHubConnection
                             new byte[1]);
                     break;
                 case REJECT:
-                    // Codes_SRS_HTTPSIOTHUBCONNECTION_11_030: [If the result is REJECT, the function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/devicebound/[eTag]??reject=true&api-version=2015-08-15-preview' (the query parameters can be in any order).]
+                    // Codes_SRS_HTTPSIOTHUBCONNECTION_11_030: [If the result is REJECT, the function shall send a request to the URL 'https://[iotHubHostname]/devices/[deviceId]/messages/devicebound/[eTag]??reject=true&api-version=2016-02-03' (the query parameters can be in any order).]
                     IotHubRejectUri rejectUri =
                             new IotHubRejectUri(iotHubHostname, deviceId,
                                     this.messageEtag);
@@ -238,7 +244,10 @@ public class HttpsIotHubConnection
                             "Invalid message result specified.");
             }
 
-            IotHubSasToken sasToken = TransportUtils.buildToken(this.config);
+            IotHubSasToken sasToken = new IotHubSasToken(IotHubUri.getResourceUri(this.config.getIotHubHostname(), this.config.getDeviceId()),
+                    this.config.getDeviceId(),
+                    this.config.getDeviceKey(),
+                    System.currentTimeMillis() / 1000l + this.config.getTokenValidSecs() + 1l);
 
             // Codes_SRS_HTTPSIOTHUBCONNECTION_11_033: [The function shall set the request read timeout to be the configuration parameter readTimeoutMillis.]
             request.setReadTimeoutMillis(readTimeoutMillis).
