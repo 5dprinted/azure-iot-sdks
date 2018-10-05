@@ -66,7 +66,7 @@ And if you are looking for end to end samples that show how to do simple analyti
 - Node device SDK:
    - [Simple device sample](node/device/samples/simple_sample_device.js): Shows how to connect to IoT Hub and send and receive messages using Node.js on a device.
    - [Send batch](node/device/samples/send_batch_http.js): Shows how to connect to IoT Hub and send a batch of messages using Node.js on a device.
-   - [Azure IoT Suite Remote Monitoring device sample](node/device/samples/remote_monitoring.js): Shows how to connect a device runnig Node.js to an Azure IoT Suite remote Monitoring preconfigured solution.
+   - [Azure IoT Suite Remote Monitoring device sample](node/device/samples/remote_monitoring.js): Shows how to connect a device running Node.js to an Azure IoT Suite remote Monitoring preconfigured solution.
 - Node service SDK:
    - [Registry manager simple sample](node/service/samples/registry_sample.js): Shows how to manage the device ID registry of IoT Hub from a Node.js application.
    - [Bulk Registry sample](node/service/samples/registry_sample.js): Shows how to create a set of device IDs in the device ID registry of IoT Hub in bulk from a Node.js application.
@@ -80,7 +80,7 @@ If you encounter any bugs or have suggestions for new features, please file an i
 
 ## Support
 
-If you are having issues using one of the packages or using the Azure IoT Hub service that go beyond simple bug fixes or help requests that would be dealt within the [issues section](https://github.com/Azure/azure-iot-sdks/issues) of this project, the Microsoft Customer Support team will try and help out on a best effort basis.
+If you are having issues using one of the packages or using the Azure IoT Hub service that goes beyond simple bug fixes or helps requests that would be dealt within the [issues section](https://github.com/Azure/azure-iot-sdks/issues) of this project, the Microsoft Customer Support team will try and help out on a best effort basis.
 To engage Microsoft support, you can create a support ticket directly from the [Azure portal](https://ms.portal.azure.com/#blade/Microsoft_Azure_Support/HelpAndSupportBlade).
 Escalated support requests for Azure IoT Hub SDKs development questions will only be available Monday thru Friday during normal coverage hours of 6 a.m. to 6 p.m. PST.
 Here is what you can expect Microsoft Support to be able to help with:
@@ -109,5 +109,5 @@ This folder contains the following documents that are relevant to all the langua
 ### /tools
 
 This folder contains tools you will find useful when you are working with IoT Hub and the device SDKs.
-- [iothub-explorer](tools/iothub-explorer/readme.md): describes how to use the iothub-explorer node.js tool to provision a device for use in IoT Hub, monitor the messages from the device, and send commands to the device.
+- [iothub-explorer](tools/iothub-explorer/readme.md): describes how to use the iothub-explorer node.js tool to provide a device for use in IoT Hub, monitor the messages from the device, and send commands to the device.
 - [Device Explorer](tools/DeviceExplorer/readme.md): this tool enables you to perform operations such as manage the devices registered to an IoT hub, view device-to-cloud messages sent to an IoT hub, and send cloud-to-device messages from an IoT hub. Note this tool only runs on Windows.
